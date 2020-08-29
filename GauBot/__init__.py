@@ -82,13 +82,17 @@ class GauBot(CommandHandler, ABC):
 
                 if not (command[0].lower() in Wrapper._handlers
                         and command[1].lower() == message.bot.username.lower()):
-                    return None
+                        return None
 
                 filter_result = self.filters(update)
                 if filter_result:
                     return args, filter_result, command[0]
                 else:
                     return False
+            else:
+                filter_result = self.filters(update)
+                if filter_result:
+                    return [], filter_result, "help_help"
 
     def handle_update(self, update, dispatcher, check_result, context=None):
         args, filter_result, command = check_result
@@ -127,9 +131,9 @@ class GauBot(CommandHandler, ABC):
             help_page.append(f"/{cmd} - {cfg['help']}")
         context.bot.send_message(chat_id=update.effective_chat.id, text="; ".join(help_page))
     
-    @Wrapper.command(name="start", help="???")
-    @Wrapper.access("admins")
-    def start(self, update, context):
+    @Wrapper.command(name="help_help", help="help for help:-D")
+    @Wrapper.access("everyone")
+    def help_help(self, update, context):
         context.bot.send_message(chat_id=update.effective_chat.id, text="Список команд /help")
 
     @Wrapper.command(name="work", help="поставить в очередь задачу (arg: <Имя файла> без расширения)")
@@ -208,7 +212,7 @@ class GauBot(CommandHandler, ABC):
                 break
             os.remove(f)
             context.bot.send_message(chat_id=update.effective_chat.id, text=f"We're fucked up: {f}")
-        _work_started = False
+        self._work_started = False
 
 
 
