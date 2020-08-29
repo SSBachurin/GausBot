@@ -16,10 +16,8 @@ from multiprocessing.pool import ThreadPool
 from abc import ABC
 import gzip
 import shutil
-import argparse
-import yaml
 
-from telegram.ext import Updater, CommandHandler, Filters
+from telegram.ext import CommandHandler, Filters
 from telegram import Update, MessageEntity
 from telegram.ext.dispatcher import run_async
 
@@ -210,7 +208,13 @@ class GauBot(CommandHandler, ABC):
             context.bot.send_message(chat_id=update.effective_chat.id, text=f"We're fucked up: {f}")
         _work_started = False
 
+
+
+
 if __name__ == "__main__":
+    import argparse
+    import yaml
+    from telegram.ext import Updater
     logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
     parser = argparse.ArgumentParser(description='Gaussian telegram bot')
