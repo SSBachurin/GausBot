@@ -2,6 +2,7 @@ import argparse
 import yaml
 import logging
 from telegram.ext import Updater
+from GauBot import GauBot
 
 if __name__ == "__main__":
     logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
