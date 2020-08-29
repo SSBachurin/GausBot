@@ -27,9 +27,11 @@ class Wrapper(ABC):
     _handlers = {}
 
     @classmethod
-    def command(cls, name):
+    def command(cls, **kwargs):
+        if not 'name' in kwargs or not 'help' in kwargs:
+            raise Exception("Name and Help are required")
         def wrapper(f):
-            cls._handlers[name] = f
+            cls._handlers[kwargs['name']] = {'handler': f, 'help': kwargs['help']}
             @wraps(f)
             def wrapped(self, *f_args, **f_kwargs):
                 f(self, *f_args, **f_kwargs)
@@ -90,7 +92,7 @@ class GauBot(CommandHandler, ABC):
 
     def handle_update(self, update, dispatcher, check_result, context=None):
         args, filter_result, command = check_result
-        callback = Wrapper._handlers[command]
+        callback = Wrapper._handlers[command]['handler']
         if context:
             self.collect_additional_context(context, update, dispatcher, (args, filter_result))
             try:
@@ -117,20 +119,20 @@ class GauBot(CommandHandler, ABC):
             with gzip.open(_out, 'wb') as f_out:
                 shutil.copyfileobj(f_in, f_out)
     
-    @Wrapper.command("help")
+    @Wrapper.command(name="help", help="get help")
     @Wrapper.access("everyone")
     def help(self, update, context):
-        help_page = '/work <Имя файла> без расширения - поставить в очередь задачу; /init - запустить кластер расчётов; ' \
-                    '/stop - остановить кластер; /remove <Имя файла> без расширения - удалить файл из очереди; /list - ' \
-                    'вывести список файлов в очереди; /queue - вывести список файлов на сервере'
-        context.bot.send_message(chat_id=update.effective_chat.id, text=help_page)
+        help_page = []
+        for cmd, cfg in Wrapper._handlers.items():
+            help_page.append(f"/{cmd} - {cfg['help']}")
+        context.bot.send_message(chat_id=update.effective_chat.id, text="; ".join(help_page))
     
-    @Wrapper.command("start")
+    @Wrapper.command(name="start", help="???")
     @Wrapper.access("admins")
     def start(self, update, context):
         context.bot.send_message(chat_id=update.effective_chat.id, text="Список команд /help")
 
-    @Wrapper.command("work")
+    @Wrapper.command(name="work", help="поставить в очередь задачу (arg: <Имя файла> без расширения)")
     @Wrapper.access("admins")
     def work(self, update, context):
         filename = str(update.message.text).split(' ')[1]
@@ -142,7 +144,7 @@ class GauBot(CommandHandler, ABC):
             context.bot.send_message(chat_id=update.effective_chat.id, text=str(['обрабатываются файлы', filename]))
             subprocess.call(["rclone", "copy", "".join(["remote:Gbot/input/", filename, ".gjf"]), self.wd])
     
-    @Wrapper.command("stop")
+    @Wrapper.command(name="stop", help="остановить кластер")
     @Wrapper.access("admins")
     def stop_work(self, update, context):
         context.bot.send_message(chat_id=update.effective_chat.id, text='Прерывание работы кластера')
@@ -150,26 +152,26 @@ class GauBot(CommandHandler, ABC):
         if self._current_process:
             self._current_process.terminate()
 
-    @Wrapper.command("list")
+    @Wrapper.command(name="list", help="вывести список файлов в очереди")
     @Wrapper.access("admins")
     def list_work(self, update, context):
         file_list = os.listdir(self.wd)
         context.bot.send_message(chat_id=update.effective_chat.id, text=file_list)
 
-    @Wrapper.command("queue")
+    @Wrapper.command(name="queue", help="вывести список файлов на сервере")
     @Wrapper.access("admins")
     def queue_work(self, update, context):
         queue = str(subprocess.check_output(["rclone", "ls", "remote:Gbot/input"]))
         context.bot.send_message(chat_id=update.effective_chat.id, text=queue)
 
-    @Wrapper.command("remove")
+    @Wrapper.command(name="remove", help="удалить файл из очереди (arg: <Имя файла> без расширения)")
     @Wrapper.access("admins")
     def remove_work(self, update, context):
         filename = str(update.message.text).split(' ')[1]
         subprocess.call(["rm", "".join([filename, ".gjf"])])
         context.bot.send_message(chat_id=update.effective_chat.id, text=['Удалена задача', filename])
 
-    @Wrapper.command("init")
+    @Wrapper.command(name="init", help="запустить кластер расчётов")
     @Wrapper.access("admins")
     @run_async
     def initiate(self, update, context):
@@ -211,23 +213,3 @@ class GauBot(CommandHandler, ABC):
 
 
 
-if __name__ == "__main__":
-    import argparse
-    import yaml
-    from telegram.ext import Updater
-    logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                    level=logging.INFO)
-    parser = argparse.ArgumentParser(description='Gaussian telegram bot')
-    parser.add_argument('--config', type=str, default='config.ini')
-    args = parser.parse_args()
-
-    with open(args.config, 'r') as cf:
-        cfg = yaml.load(open(args.config, 'r'), Loader=yaml.FullLoader)
-    updater = Updater(token=cfg['telegram']['token'], use_context=True)
-    updater.dispatcher.add_handler(
-        GauBot(
-            cfg['gaussian']['path'],
-            users=cfg['telegram']['groups']
-        )
-    )
-    updater.start_polling()
