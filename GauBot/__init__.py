@@ -49,7 +49,17 @@ class Wrapper(ABC):
             return wrapped
         return wrapper
 
-class GauBot(CommandHandler, ABC):
+class GauArc(object):
+    def _compress(self, _in, _out):
+        with open(_in, 'rb') as f_in:
+            with gzip.open(_out, 'wb') as f_out:
+                shutil.copyfileobj(f_in, f_out)
+
+class GauDrive(GauArc):
+    def __init__(self):
+        pass
+
+class GauBotBase(CommandHandler):
     def __init__(self, path, **kwargs):
         self.wd = path
         self.users_groups = kwargs.get("users", {})
@@ -57,10 +67,11 @@ class GauBot(CommandHandler, ABC):
         self.pass_job_queue = False
         self.pass_user_data = False
         self.pass_chat_data = False
+        self.filters = Filters.update.messages
         self._stop_flag = False
         self._work_started = False
         self._current_process = None
-        self.filters = Filters.update.messages
+        self._drive = GauDrive()
 
     def _check_access(self, group_name, update):
         user_id = update.effective_user.id
@@ -118,11 +129,7 @@ class GauBot(CommandHandler, ABC):
         _current_process.wait()
         return _current_process.returncode
 
-    def _compress(self, _in, _out):
-        with open(_in, 'rb') as f_in:
-            with gzip.open(_out, 'wb') as f_out:
-                shutil.copyfileobj(f_in, f_out)
-    
+class GauBot(GauBotBase):
     @Wrapper.command(name="help", help="get help")
     @Wrapper.access("everyone")
     def help(self, update, context):
@@ -188,15 +195,15 @@ class GauBot(CommandHandler, ABC):
             logging.info(f"File processing: {f}")
             context.bot.send_message(chat_id=update.effective_chat.id, text=f"File processing: {f}")
             try:
-                ret_code = _run(["g16", f])
+                ret_code = self._run(["g16", f])
             except:
                 logging.warning("Someone has killed us O_o")
                 break
             if ret_code == 0:
                 try:
                     f_zip = splitext(f)[0] + ".gz"
-                    _compress(join(self.wd, splitext(f)[0] + ".log"))
-                    _run(["rclone", "copy", join(self.wd, f_zip), "remote:Gbot/log/"]) # gapi
+                    self._drive._compress(join(self.wd, splitext(f)[0] + ".log"))
+                    self._run(["rclone", "copy", join(self.wd, f_zip), "remote:Gbot/log/"]) # gapi
                 except:
                     logging.warning("Someone has killed us O_o")
                     break
@@ -205,15 +212,11 @@ class GauBot(CommandHandler, ABC):
                 continue
             try:
                 f_zip = splitext(f)[0] + ".gz"
-                _compress(join(self.wd, splitext(f)[0] + ".log"))
-                _run(["rclone", "copy", join(self.wd, f_zip), "remote:Gbot/error/"]) # gapi
+                self._drive._compress(join(self.wd, splitext(f)[0] + ".log"))
+                self._run(["rclone", "copy", join(self.wd, f_zip), "remote:Gbot/error/"]) # gapi
             except:
                 logging.warning("Someone has killed us O_o")
                 break
             os.remove(f)
             context.bot.send_message(chat_id=update.effective_chat.id, text=f"We're fucked up: {f}")
         self._work_started = False
-
-
-
-
