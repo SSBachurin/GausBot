@@ -1,0 +1,8 @@
+telegram:
+  token: ""
+  groups:
+    admins:
+      - 338000035
+      - 338000034
+gaussian:
+  path: "/test/path"

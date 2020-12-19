@@ -1,0 +1,5 @@
+GauBot.egg-info
+__pycache__
+build
+dist
+config.yaml
